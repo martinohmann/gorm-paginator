@@ -63,7 +63,7 @@ func WithGinContext(c *gin.Context, paramNames ...ParamNames) Option {
 			}
 		}
 
-		if params.Page != "" {
+		if params.Limit != "" {
 			limit, err := strconv.Atoi(c.Query(params.Limit))
 			if err == nil {
 				WithLimit(limit)(p)
