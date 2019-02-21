@@ -1,3 +1,5 @@
+// Package paginator provides a simple paginator implementation for gorm. It
+// also supports configuring the paginator for a http.Request.
 package paginator
 
 import (
@@ -78,6 +80,7 @@ func (p *paginator) Paginate(value interface{}) (*Result, error) {
 	return p.result(value, <-c)
 }
 
+// prepareDB prepares the statement by adding the order clauses.
 func (p *paginator) prepareDB() *gorm.DB {
 	db := p.db
 
@@ -96,7 +99,7 @@ func (p *paginator) offset() int {
 // countRecords counts the result rows for given query and returns the result
 // in the provided channel.
 func countRecords(db *gorm.DB, value interface{}, c chan<- countResult) {
-	result := countResult{}
+	var result countResult
 	result.err = db.Model(value).Count(&result.total).Error
 	c <- result
 }
