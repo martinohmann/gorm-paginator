@@ -1,5 +1,5 @@
 // Package paginator provides a simple paginator implementation for gorm. It
-// also supports configuring the paginator for a http.Request.
+// also supports configuring the paginator via http.Request query params.
 package paginator
 
 import (
@@ -17,7 +17,7 @@ type Paginator interface {
 	Paginate(interface{}) (*Result, error)
 }
 
-// paginator defines a paginator
+// paginator defines a paginator.
 type paginator struct {
 	db    *gorm.DB
 	limit int
@@ -25,13 +25,13 @@ type paginator struct {
 	order []string
 }
 
-// countResult defines the result of the count query executed by the paginator
+// countResult defines the result of the count query executed by the paginator.
 type countResult struct {
 	total int
 	err   error
 }
 
-// Result defines a paginated result
+// Result defines a paginated result.
 type Result struct {
 	CurrentPage    int         `json:"currentPage"`
 	MaxPage        int         `json:"maxPage"`
@@ -42,6 +42,9 @@ type Result struct {
 
 // New create a new value of the Paginator type. It expects a gorm DB handle
 // and pagination options.
+//     var v SomeModel
+//     p := paginator.New(db, paginator.WithPage(2))
+//     res, err := p.Paginate(&v)
 func New(db *gorm.DB, options ...Option) Paginator {
 	p := &paginator{
 		db:    db,
@@ -58,11 +61,13 @@ func New(db *gorm.DB, options ...Option) Paginator {
 }
 
 // Paginate is a convenience wrapper for the paginator.
+//     var v SomeModel
+//     res, err := paginator.Paginate(db, &v, paginator.WithPage(2))
 func Paginate(db *gorm.DB, value interface{}, options ...Option) (*Result, error) {
 	return New(db, options...).Paginate(value)
 }
 
-// Paginate executes the pagination request for given value.
+// Paginate implements the Paginator interface.
 func (p *paginator) Paginate(value interface{}) (*Result, error) {
 	db := p.prepareDB()
 
