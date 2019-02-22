@@ -42,7 +42,7 @@ type Result struct {
 
 // New create a new value of the Paginator type. It expects a gorm DB handle
 // and pagination options.
-//     var v SomeModel
+//     var v []SomeModel
 //     p := paginator.New(db, paginator.WithPage(2))
 //     res, err := p.Paginate(&v)
 func New(db *gorm.DB, options ...Option) Paginator {
@@ -61,7 +61,7 @@ func New(db *gorm.DB, options ...Option) Paginator {
 }
 
 // Paginate is a convenience wrapper for the paginator.
-//     var v SomeModel
+//     var v []SomeModel
 //     res, err := paginator.Paginate(db, &v, paginator.WithPage(2))
 func Paginate(db *gorm.DB, value interface{}, options ...Option) (*Result, error) {
 	return New(db, options...).Paginate(value)
