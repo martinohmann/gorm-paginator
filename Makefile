@@ -10,7 +10,7 @@ deps: ## install go deps
 
 .PHONY: test
 test: ## run tests
-	go test -race -tags="$(TAGS)" $$(go list ./... | grep -v /vendor/)
+	go test -count=1 -race -tags="$(TAGS)" $$(go list ./... | grep -v /vendor/)
 
 .PHONY: vet
 vet: ## run go vet

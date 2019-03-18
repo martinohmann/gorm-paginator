@@ -4,13 +4,30 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/jinzhu/gorm"
 )
 
 type model struct {
 	ID   int
 	Name string
+}
+
+type Foo struct {
+	ID    int
+	Baz   *Baz
+	BazID int   `gorm:"foreignkey:ID;association_foreignkey:BazID"`
+	Bars  []Bar `gorm:"many2many:bars_foos"`
+}
+
+type Bar struct {
+	ID   int
+	Foos []Foo `gorm:"many2many:bars_foos"`
+}
+
+type Baz struct {
+	ID   int
+	Foos []Foo `gorm:"foreignkey:BazID"`
 }
 
 func createMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
@@ -193,6 +210,8 @@ func TestQueryError(t *testing.T) {
 
 	mock.ExpectQuery("SELECT * FROM `models` LIMIT 20 OFFSET 0").
 		WillReturnError(expectedError)
+	mock.ExpectQuery("SELECT count(*) FROM `models`").
+		WillReturnRows(sqlmock.NewRows([]string{"count(*)"}).AddRow(0))
 
 	var m []model
 
@@ -229,6 +248,112 @@ func TestCountQueryError(t *testing.T) {
 
 	if err != expectedError {
 		t.Fatalf("expected error %q while calling Paginate but got %q", expectedError, err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPaginateRelatedManyToMany(t *testing.T) {
+	db, mock := createMockDB(t)
+
+	rows := sqlmock.NewRows([]string{"id", "name"})
+	mock.ExpectQuery("SELECT `bars`.* FROM `bars` INNER JOIN `bars_foos` ON `bars_foos`.`bar_id` = `bars`.`id` WHERE (`bars_foos`.`foo_id` IN (?)) LIMIT 20 OFFSET 0").
+		WillReturnRows(rows)
+
+	countRows := sqlmock.NewRows([]string{"count(*)"}).AddRow(0)
+	mock.ExpectQuery("SELECT count(*) FROM `bars` INNER JOIN `bars_foos` ON `bars_foos`.`bar_id` = `bars`.`id` WHERE (`bars_foos`.`foo_id` IN (?))").
+		WillReturnRows(countRows)
+
+	foo := Foo{ID: 1}
+
+	var bars []Bar
+
+	_, err := PaginateRelated(db, &foo, &bars, "Bars")
+	if err != nil {
+		t.Fatalf("unexpected error while calling Paginate: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPaginateRelatedHasMany(t *testing.T) {
+	db, mock := createMockDB(t)
+
+	rows := sqlmock.NewRows([]string{"id", "name"})
+	mock.ExpectQuery("SELECT * FROM `foos` WHERE (`baz_id` = ?) LIMIT 20 OFFSET 0").WillReturnRows(rows)
+
+	countRows := sqlmock.NewRows([]string{"count(*)"}).AddRow(0)
+	mock.ExpectQuery("SELECT count(*) FROM `foos` WHERE (`baz_id` IN (?))").WillReturnRows(countRows)
+
+	baz := Baz{ID: 1}
+
+	var foos []Foo
+
+	_, err := PaginateRelated(db, &baz, &foos, "Foos")
+	if err != nil {
+		t.Fatalf("unexpected error while calling Paginate: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRelatedQueryError(t *testing.T) {
+	db, mock := createMockDB(t)
+
+	expectedError := errors.New("some error")
+
+	mock.ExpectQuery("SELECT * FROM `foos` WHERE (`baz_id` = ?) LIMIT 20 OFFSET 0").
+		WillReturnError(expectedError)
+
+	mock.ExpectQuery("SELECT count(*) FROM `foos` WHERE (`baz_id` IN (?))").
+		WillReturnRows(sqlmock.NewRows([]string{"count(*)"}).AddRow(0))
+
+	baz := Baz{ID: 1}
+
+	var foos []Foo
+
+	_, err := PaginateRelated(db, &baz, &foos, "Foos")
+	if err == nil {
+		t.Fatal("expected error while calling Paginate but got nil")
+	}
+
+	if err != expectedError {
+		t.Fatalf("expected error %q while calling PaginateRelated but got %q", expectedError, err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRelatedCountQueryError(t *testing.T) {
+	db, mock := createMockDB(t)
+
+	expectedError := errors.New("some error")
+
+	mock.ExpectQuery("SELECT * FROM `foos` WHERE (`baz_id` = ?) LIMIT 20 OFFSET 0").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}))
+
+	mock.ExpectQuery("SELECT count(*) FROM `foos` WHERE (`baz_id` IN (?))").
+		WillReturnError(expectedError)
+
+	baz := Baz{ID: 1}
+
+	var foos []Foo
+
+	_, err := PaginateRelated(db, &baz, &foos, "Foos")
+	if err == nil {
+		t.Fatal("expected error while calling Paginate but got nil")
+	}
+
+	if err != expectedError {
+		t.Fatalf("expected error %q while calling PaginateRelated but got %q", expectedError, err)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
